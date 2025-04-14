@@ -1,0 +1,21 @@
+{
+	"required": true,
+	"package": "com.github.exopandora.worldupgrader.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AccessorBlockableEventLoop",
+		"AccessorChunkMap",
+		"AccessorEntityStorage",
+		"AccessorIOWorker",
+		"AccessorMinecraftServer",
+		"AccessorPersistentEntitySectionManager",
+		"AccessorRegionFileStorage",
+		"AccessorServerLevel",
+		"AccessorSimpleRegionStorage",
+		"MixinMinecraftServer",
+		"MixinRegionFileStorage"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
