@@ -19,6 +19,7 @@ public class MixinMinecraftServer {
 		method = "runServer"
 	)
 	private void runServer(CallbackInfo ci) {
+		// noinspection DataFlowIssue
 		DecorationUpgradeKt.upgrade((MinecraftServer) (Object) this);
 	}
 	
