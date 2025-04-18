@@ -24,7 +24,8 @@ This mod currently only supports upgrading worlds with features that were introd
 > [!WARNING]
 > The upgrade process is not idempotent!
 
-1. Build the mod `gradlew build`
-2. Install the mod
-3. Load the world you want to upgrade (this may take a while!)
-4. Uninstall the mod
+1. Install [fabric-language-kotlin](https://github.com/FabricMC/fabric-language-kotlin/)
+2. Build the mod `gradlew build`
+3. Install the mod
+4. Load the world you want to upgrade (this may take a while!)
+5. Uninstall the mod
