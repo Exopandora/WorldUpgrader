@@ -135,7 +135,8 @@ private fun upgradeOverworld(
             .takeIf { it.isNotEmpty() }
             ?.map { it as CompoundTag }
             ?: return@forEachChunk
-        upgradeEntities(level, entities, entityUpgrades)
+        val chunk = level.chunkAt(chunkPos)
+        upgradeEntities(level, chunk, entities, entityUpgrades)
         chunkTag.put("Entities", ListTag(entities))
         regionFile.getChunkDataOutputStream(ChunkPos(chunkPos.x % 32, chunkPos.z % 32))
             .use { dataOutput -> NbtIo.write(chunkTag, dataOutput) }
@@ -469,13 +470,14 @@ private fun upgradeOverworldChunk(
 
 private fun upgradeEntities(
     level: ServerLevel,
+    chunk: LevelChunk,
     entities: List<CompoundTag>,
     entityUpgrades: Map<ResourceLocation, EntityUpgrade>
 ) {
     entities.forEach { entity ->
         entity.getString("id")
             .map { entityId -> entityUpgrades[ResourceLocation.parse(entityId)] }
-            .ifPresent { upgrade -> upgrade.upgrade(entity, level) }
+            .ifPresent { upgrade -> upgrade.upgrade(chunk, entity, level) }
     }
 }
 
@@ -488,7 +490,7 @@ sealed interface Upgrade
 
 interface EntityUpgrade : Upgrade {
     val entityId: ResourceLocation
-    fun upgrade(entity: CompoundTag, level: ServerLevel)
+    fun upgrade(chunk: LevelChunk, entity: CompoundTag, level: ServerLevel)
 }
 
 abstract class VariantEntityUpgrade(
@@ -497,13 +499,13 @@ abstract class VariantEntityUpgrade(
 ) : EntityUpgrade {
     abstract fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): ResourceLocation
     
-    override fun upgrade(entity: CompoundTag, level: ServerLevel) {
+    override fun upgrade(chunk: LevelChunk, entity: CompoundTag, level: ServerLevel) {
         val pos = entity.read("Pos", Vec3.CODEC)
             .map { BlockPos(it.x.toInt(), it.y.toInt(), it.z.toInt()) }
             .orElse(BlockPos.ZERO)
         val currentVariant = entity.read("variant", ResourceLocation.CODEC)
         if (currentVariant.isEmpty || currentVariant.get() == defaultVariant) {
-            val updatedVariant = variant(pos, level, level.getBiome(pos))
+            val updatedVariant = variant(pos, level, chunk.getNoiseBiome(pos.x, pos.y, pos.z))
             entity.store("variant", ResourceLocation.CODEC, updatedVariant)
         }
     }
