@@ -135,7 +135,7 @@ private fun upgradeOverworld(
             .takeIf { it.isNotEmpty() }
             ?.map { it as CompoundTag }
             ?: return@forEachChunk
-        val chunk = level.chunkAt(chunkPos)
+        val chunk = lazy { level.chunkAt(chunkPos) }
         upgradeEntities(level, chunk, entities, entityUpgrades)
         chunkTag.put("Entities", ListTag(entities))
         regionFile.getChunkDataOutputStream(ChunkPos(chunkPos.x % 32, chunkPos.z % 32))
@@ -470,14 +470,14 @@ private fun upgradeOverworldChunk(
 
 private fun upgradeEntities(
     level: ServerLevel,
-    chunk: LevelChunk,
+    chunk: Lazy<LevelChunk>,
     entities: List<CompoundTag>,
     entityUpgrades: Map<ResourceLocation, EntityUpgrade>
 ) {
     entities.forEach { entity ->
         entity.getString("id")
             .map { entityId -> entityUpgrades[ResourceLocation.parse(entityId)] }
-            .ifPresent { upgrade -> upgrade.upgrade(chunk, entity, level) }
+            .ifPresent { upgrade -> upgrade.upgrade(chunk.value, entity, level) }
     }
 }
 
