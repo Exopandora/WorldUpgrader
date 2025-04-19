@@ -180,7 +180,7 @@ private fun forEachChunk(
                 .collect(Collectors.toList())
             positions.forEach { chunkPos -> consumer(chunkPos, regionFile) }
             regionFileStorage.flush()
-            while ((chunkSource.chunkMap as AccessorChunkMap).updatingChunkMap.size > 1000) {
+            while ((chunkSource.chunkMap as AccessorChunkMap).updatingChunkMap.size > 3000) {
                 chunkSource.tick({ true }, true)
                 (server as AccessorBlockableEventLoop).invokeRunAllTasks()
                 with(server as AccessorMinecraftServer) {
