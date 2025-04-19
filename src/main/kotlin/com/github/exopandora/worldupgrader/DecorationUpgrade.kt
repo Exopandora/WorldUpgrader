@@ -128,22 +128,32 @@ private fun upgradeOverworld(
     val entityRegionFileStorage = (((((level as AccessorServerLevel).entityManager as AccessorPersistentEntitySectionManager<*>).permanentStorage as AccessorEntityStorage).simpleRegionStorage as AccessorSimpleRegionStorage).worker as AccessorIOWorker).storage
     
     forEachChunk(server, chunkCache, dimensionPath.resolve("entities"), entityRegionFileStorage) { chunkPos, regionFile ->
-        val chunkTag = regionFile.getChunkDataInputStream(chunkPos)
-            ?.use(NbtIo::read)
-            ?: return@forEachChunk
-        val entities = chunkTag.getListOrEmpty("Entities")
-            .takeIf { it.isNotEmpty() }
-            ?.map { it as CompoundTag }
-            ?: return@forEachChunk
-        val chunk = lazy { level.chunkAt(chunkPos) }
-        upgradeEntities(level, chunk, entities, entityUpgrades)
-        chunkTag.put("Entities", ListTag(entities))
-        regionFile.getChunkDataOutputStream(ChunkPos(chunkPos.x % 32, chunkPos.z % 32))
-            .use { dataOutput -> NbtIo.write(chunkTag, dataOutput) }
+        upgradeOverworldEntities(chunkPos, regionFile, level, entityUpgrades)
     }
     forEachChunk(server, chunkCache, dimensionPath.resolve("region"), regionFileStorage) { chunkPos, _ ->
         upgradeOverworldChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
     }
+}
+
+private fun upgradeOverworldEntities(
+    chunkPos: ChunkPos,
+    regionFile: RegionFile,
+    level: ServerLevel,
+    entityUpgrades: Map<ResourceLocation, EntityUpgrade>
+) {
+    logger.info("Upgrading entities in chunk $chunkPos")
+    val chunkTag = regionFile.getChunkDataInputStream(chunkPos)
+        ?.use(NbtIo::read)
+        ?: return
+    val entities = chunkTag.getListOrEmpty("Entities")
+        .takeIf { it.isNotEmpty() }
+        ?.map { it as CompoundTag }
+        ?: return
+    val chunk = lazy { level.chunkAt(chunkPos) }
+    upgradeEntities(level, chunk, entities, entityUpgrades)
+    chunkTag.put("Entities", ListTag(entities))
+    regionFile.getChunkDataOutputStream(ChunkPos(chunkPos.x % 32, chunkPos.z % 32))
+        .use { dataOutput -> NbtIo.write(chunkTag, dataOutput) }
 }
 
 private fun ServerLevel.chunkAt(
