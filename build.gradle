@@ -1,8 +1,8 @@
 plugins {
-	id 'fabric-loom' version '1.9-SNAPSHOT'
+	id 'fabric-loom' version '1.10-SNAPSHOT'
 	id 'maven-publish'
 	id 'idea'
-	id "org.jetbrains.kotlin.jvm" version "2.1.10"
+	id "org.jetbrains.kotlin.jvm" version "2.2.0"
 }
 
 version = project.mod_version
