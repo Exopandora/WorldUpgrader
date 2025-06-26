@@ -25,6 +25,7 @@ import net.minecraft.CrashReport
 import net.minecraft.ReportedException
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Holder
+import net.minecraft.core.Registry
 import net.minecraft.core.RegistryAccess
 import net.minecraft.core.SectionPos
 import net.minecraft.core.registries.BuiltInRegistries
@@ -81,21 +82,15 @@ fun upgrade(server: MinecraftServer) {
     biome2features.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features.joinToString(",")}")
     }
-    val biome2upgrades = biome2features
-        .mapValues { (_, features) ->
-            UpgradeSet(
-                decorationUpgrades.filter { upgrade -> upgrade.features.intersect(features).isNotEmpty() }.toSet(),
-                features.intersect(featureUpgrades)
-            )
-        }
-        .filterValues { it.decorationUpgrades.isNotEmpty() || it.featureUpgrades.isNotEmpty() }
-    biome2upgrades.forEach { (biome, features) ->
-        logger.info("${biomeRegistry.getKey(biome)}=${features}")
-    }
-    val entityUpgrades = entityUpgrades.associateBy { it.entityId }
-    val level = server.getLevel(Level.OVERWORLD)!!
-    upgradeOverworld(server, level, biome2upgrades, entityUpgrades)
+    val versionsToUpgrade = System.getProperty("worldupgrader.versions", "").split(",").toSet()
+    val versionUpgrades = compileUpgrades(versionsToUpgrade)
+    upgradeLevel(server, Level.OVERWORLD, versionUpgrades.overworldUpgrades, biomeRegistry, biome2features)
+    upgradeLevel(server, Level.NETHER, versionUpgrades.netherUpgrades, biomeRegistry, biome2features)
+    upgradeLevel(server, Level.END, versionUpgrades.endUpgrades, biomeRegistry, biome2features)
 }
+
+private fun compileUpgrades(versions: Set<String>): VersionUpgrade =
+    versions.sorted().mapNotNull { upgradeDefinitions[it] }.reduceOrNull(VersionUpgrade::merge) ?: VersionUpgrade.EMPTY
 
 private fun createBiomeFeatureMap(
     registryAccess: RegistryAccess
@@ -113,12 +108,32 @@ private fun createBiomeFeatureMap(
     }
 }
 
-private fun upgradeOverworld(
+private fun createBiome2upgrades(
+    levelUpgrade: LevelUpgrade,
+    biome2features: Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>>
+) = biome2features.mapValues { (_, features) ->
+        UpgradeSet(
+            levelUpgrade.decorationUpgrades.filter { upgrade -> upgrade.features.intersect(features).isNotEmpty() }.toSet(),
+            features.intersect(levelUpgrade.featureUpgrades)
+        )
+    }
+    .filterValues { it.decorationUpgrades.isNotEmpty() || it.featureUpgrades.isNotEmpty() }
+
+private fun upgradeLevel(
     server: MinecraftServer,
-    level: ServerLevel,
-    biome2upgrades: Map<Biome, UpgradeSet>,
-    entityUpgrades: Map<ResourceLocation, EntityUpgrade>
+    dimension: ResourceKey<Level>,
+    levelUpgrade: LevelUpgrade,
+    biomeRegistry: Registry<Biome>,
+    biome2features: Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>>
 ) {
+    if (levelUpgrade.isEmpty()) return
+    val level = server.getLevel(dimension)!!
+    val biome2upgrades = createBiome2upgrades(levelUpgrade, biome2features)
+    logger.info("${level.dimension().location()} biomes to upgrades:")
+    biome2upgrades.forEach { (biome, features) ->
+        logger.info("${biomeRegistry.getKey(biome)}=${features}")
+    }
+    val entityUpgrades = levelUpgrade.entityUpgrades.associateBy { it.entityId }
     val chunkCache = level.chunkSource
     val chunkMap = chunkCache.chunkMap
     val regionFileStorage = (chunkMap.chunkScanner() as AccessorIOWorker).storage
@@ -128,14 +143,14 @@ private fun upgradeOverworld(
     val entityRegionFileStorage = (((((level as AccessorServerLevel).entityManager as AccessorPersistentEntitySectionManager<*>).permanentStorage as AccessorEntityStorage).simpleRegionStorage as AccessorSimpleRegionStorage).worker as AccessorIOWorker).storage
     
     forEachChunk(server, chunkCache, dimensionPath.resolve("entities"), entityRegionFileStorage) { chunkPos, regionFile ->
-        upgradeOverworldEntities(chunkPos, regionFile, level, entityUpgrades)
+        upgradeEntities(chunkPos, regionFile, level, entityUpgrades)
     }
     forEachChunk(server, chunkCache, dimensionPath.resolve("region"), regionFileStorage) { chunkPos, _ ->
-        upgradeOverworldChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
+        upgradeChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
     }
 }
 
-private fun upgradeOverworldEntities(
+private fun upgradeEntities(
     chunkPos: ChunkPos,
     regionFile: RegionFile,
     level: ServerLevel,
@@ -401,35 +416,75 @@ private val wolfVariantUpgrade = object : VariantEntityUpgrade(
         }
 }
 
-private val decorationUpgrades: Set<DecorationUpgrade> = setOf(
-    oakDecorationUpgrade,
-    fanyOakDecorationUpgrade,
-    birchDecorationUpgrade,
-    darkOakDecorationUpgrade,
-    cactusDecorationUpgrade
+val upgradeDefinitions = mapOf(
+    "1.21.5" to VersionUpgrade(
+        overworldUpgrades = LevelUpgrade(
+            decorationUpgrades = setOf(
+                oakDecorationUpgrade,
+                fanyOakDecorationUpgrade,
+                birchDecorationUpgrade,
+                darkOakDecorationUpgrade,
+                cactusDecorationUpgrade
+            ),
+            featureUpgrades = setOf(
+                VegetationFeatures.PATCH_DRY_GRASS,
+                VegetationFeatures.PATCH_BUSH,
+                VegetationFeatures.PATCH_FIREFLY_BUSH,
+                VegetationFeatures.WILDFLOWERS_BIRCH_FOREST,
+                VegetationFeatures.WILDFLOWERS_MEADOW,
+                TreeFeatures.FALLEN_OAK_TREE,
+                TreeFeatures.FALLEN_JUNGLE_TREE,
+                TreeFeatures.FALLEN_SPRUCE_TREE,
+                TreeFeatures.FALLEN_BIRCH_TREE,
+                TreeFeatures.FALLEN_SUPER_BIRCH_TREE
+            ),
+            entityUpgrades = setOf(
+                chickenVariantUpgrade,
+                cowVariantUpgrade,
+                pigVariantUpgrade,
+                wolfVariantUpgrade
+            )
+        )
+    )
 )
 
-private val featureUpgrades = setOf(
-    VegetationFeatures.PATCH_DRY_GRASS,
-    VegetationFeatures.PATCH_BUSH,
-    VegetationFeatures.PATCH_FIREFLY_BUSH,
-    VegetationFeatures.WILDFLOWERS_BIRCH_FOREST,
-    VegetationFeatures.WILDFLOWERS_MEADOW,
-    TreeFeatures.FALLEN_OAK_TREE,
-    TreeFeatures.FALLEN_JUNGLE_TREE,
-    TreeFeatures.FALLEN_SPRUCE_TREE,
-    TreeFeatures.FALLEN_BIRCH_TREE,
-    TreeFeatures.FALLEN_SUPER_BIRCH_TREE
-)
+data class VersionUpgrade(
+    val overworldUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
+    val netherUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
+    val endUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
+) {
+    fun merge(other: VersionUpgrade) =
+        VersionUpgrade(
+            overworldUpgrades.merge(other.overworldUpgrades),
+            netherUpgrades.merge(other.netherUpgrades),
+            endUpgrades.merge(other.endUpgrades)
+        )
+    
+    companion object {
+        val EMPTY = VersionUpgrade()
+    }
+}
 
-private val entityUpgrades = setOf(
-    chickenVariantUpgrade,
-    cowVariantUpgrade,
-    pigVariantUpgrade,
-    wolfVariantUpgrade
-)
+data class LevelUpgrade(
+    val decorationUpgrades: Set<DecorationUpgrade> = emptySet(),
+    val featureUpgrades: Set<ResourceKey<ConfiguredFeature<*, *>>> = emptySet(),
+    val entityUpgrades: Set<VariantEntityUpgrade> = emptySet(),
+) {
+    fun merge(other: LevelUpgrade) =
+        LevelUpgrade(
+            decorationUpgrades + other.decorationUpgrades,
+            featureUpgrades + other.featureUpgrades,
+            entityUpgrades + other.entityUpgrades
+        )
+    
+    fun isEmpty() = decorationUpgrades.isEmpty() && featureUpgrades.isEmpty() && entityUpgrades.isEmpty()
+    
+    companion object {
+        val EMPTY = LevelUpgrade()
+    }
+}
 
-private fun upgradeOverworldChunk(
+private fun upgradeChunk(
     level: ServerLevel,
     chunk: LevelChunk,
     generatorConfig: GeneratorConfig,
@@ -573,17 +628,14 @@ abstract class PillarMatchingDecorationUpgrade : AbstractDecorationUpgrade() {
     override fun test(level: Level, pos: BlockPos, blockState: BlockState): BlockPos? {
         var offset = 0
         pillarDefinition.forEach { definition ->
-            for (x in 0 ..< definition.count) {
+            repeat(definition.count) {
                 val blockStateAtOffset = when (offset) {
                     0 -> blockState
                     else -> level.getBlockState(pos.below(offset))
                 }
                 if (definition.test(blockStateAtOffset)) {
                     offset++
-                    continue
-                } else if (!definition.required) {
-                    continue
-                } else {
+                } else if (definition.required) {
                     return null
                 }
             }

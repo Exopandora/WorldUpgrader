@@ -27,5 +27,7 @@ This mod currently only supports upgrading worlds with features that were introd
 1. Install [fabric-language-kotlin](https://github.com/FabricMC/fabric-language-kotlin/)
 2. Build the mod `gradlew build`
 3. Install the mod
-4. Load the world you want to upgrade (this may take a while!)
-5. Uninstall the mod
+4. Add the jvm argument `-Dworldupgrader.versions=1.21.5` to your launcher profile or server script
+5. Load the world you want to upgrade (this may take a while!)
+6. Uninstall the mod
+7. Remove the jvm argument from your launcher profile or server script
