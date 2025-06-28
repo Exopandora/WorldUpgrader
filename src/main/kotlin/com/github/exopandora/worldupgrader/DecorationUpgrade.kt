@@ -76,13 +76,14 @@ import org.slf4j.LoggerFactory
 private val logger = LoggerFactory.getLogger(DecorationUpgrade::class.java.simpleName)
 
 fun upgrade(server: MinecraftServer) {
+    val versionsToUpgrade = System.getProperty("worldupgrader.versions", "").split(",").toSet()
+    if (versionsToUpgrade.isEmpty()) return
     val registryAccess = server.registryAccess()
     val biome2features = createBiomeFeatureMap(registryAccess)
     val biomeRegistry = registryAccess.lookupOrThrow(Registries.BIOME)
     biome2features.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features.joinToString(",")}")
     }
-    val versionsToUpgrade = System.getProperty("worldupgrader.versions", "").split(",").toSet()
     val versionUpgrades = compileUpgrades(versionsToUpgrade)
     upgradeLevel(server, Level.OVERWORLD, versionUpgrades.overworldUpgrades, biomeRegistry, biome2features)
     upgradeLevel(server, Level.NETHER, versionUpgrades.netherUpgrades, biomeRegistry, biome2features)
@@ -133,20 +134,24 @@ private fun upgradeLevel(
     biome2upgrades.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features}")
     }
-    val entityUpgrades = levelUpgrade.entityUpgrades.associateBy { it.entityId }
     val chunkCache = level.chunkSource
     val chunkMap = chunkCache.chunkMap
     val regionFileStorage = (chunkMap.chunkScanner() as AccessorIOWorker).storage
     val storageSource = (server as AccessorMinecraftServer).storageSource
     val dimensionPath = storageSource.getDimensionPath(level.dimension())
-    val generatorConfig = GeneratorConfig.of(level)
-    val entityRegionFileStorage = (((((level as AccessorServerLevel).entityManager as AccessorPersistentEntitySectionManager<*>).permanentStorage as AccessorEntityStorage).simpleRegionStorage as AccessorSimpleRegionStorage).worker as AccessorIOWorker).storage
     
-    forEachChunk(server, chunkCache, dimensionPath.resolve("entities"), entityRegionFileStorage) { chunkPos, regionFile ->
-        upgradeEntities(chunkPos, regionFile, level, entityUpgrades)
+    if (levelUpgrade.entityUpgrades.isNotEmpty()) {
+        val entityUpgrades = levelUpgrade.entityUpgrades.associateBy { it.entityId }
+        val entityRegionFileStorage = (((((level as AccessorServerLevel).entityManager as AccessorPersistentEntitySectionManager<*>).permanentStorage as AccessorEntityStorage).simpleRegionStorage as AccessorSimpleRegionStorage).worker as AccessorIOWorker).storage
+        forEachChunk(server, chunkCache, dimensionPath.resolve("entities"), entityRegionFileStorage) { chunkPos, regionFile ->
+            upgradeEntities(chunkPos, regionFile, level, entityUpgrades)
+        }
     }
-    forEachChunk(server, chunkCache, dimensionPath.resolve("region"), regionFileStorage) { chunkPos, _ ->
-        upgradeChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
+    if (biome2upgrades.isNotEmpty()) {
+        val generatorConfig = GeneratorConfig.of(level)
+        forEachChunk(server, chunkCache, dimensionPath.resolve("region"), regionFileStorage) { chunkPos, _ ->
+            upgradeChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
+        }
     }
 }
 
