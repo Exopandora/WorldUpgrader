@@ -394,7 +394,7 @@ private val cactusDecorationUpgrade = object : PillarMatchingDecorationUpgrade()
                 level.getBlockState(flowerPos.south()).isAir &&
                 level.getBlockState(flowerPos.west()).isAir
             ) {
-                level.setBlock(flowerPos, Blocks.CACTUS_FLOWER.defaultBlockState(), 19)
+                level.setBlock(flowerPos, Blocks.CACTUS_FLOWER.defaultBlockState(), WORLD_GEN_BLOCK_UPDATE_FLAGS)
             }
         }
     }
