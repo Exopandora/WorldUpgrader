@@ -3,6 +3,7 @@ package com.github.exopandora.worldupgrader
 import com.github.exopandora.worldupgrader.PillarEntry.Companion.optional
 import com.github.exopandora.worldupgrader.PillarEntry.Companion.required
 import com.github.exopandora.worldupgrader.mixin.AccessorBlockableEventLoop
+import com.github.exopandora.worldupgrader.mixin.AccessorChunkGenerator
 import com.github.exopandora.worldupgrader.mixin.AccessorChunkMap
 import com.github.exopandora.worldupgrader.mixin.AccessorEntityStorage
 import com.github.exopandora.worldupgrader.mixin.AccessorIOWorker
@@ -57,6 +58,7 @@ import net.minecraft.world.level.biome.FeatureSorter
 import net.minecraft.world.level.biome.FeatureSorter.StepFeatureData
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.status.ChunkStatus
@@ -70,6 +72,11 @@ import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
 import net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration
 import net.minecraft.world.level.levelgen.feature.treedecorators.PlaceOnGroundDecorator
 import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecorator
+import net.minecraft.world.level.levelgen.structure.BuiltinStructures
+import net.minecraft.world.level.levelgen.structure.Structure
+import net.minecraft.world.level.levelgen.structure.StructureStart
+import net.minecraft.world.level.levelgen.structure.structures.NetherFossilPieces
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.slf4j.LoggerFactory
 
@@ -147,10 +154,14 @@ private fun upgradeLevel(
             upgradeEntities(chunkPos, regionFile, level, entityUpgrades)
         }
     }
-    if (biome2upgrades.isNotEmpty()) {
+    if (biome2upgrades.isNotEmpty() || levelUpgrade.structureUpgrades.isNotEmpty()) {
         val generatorConfig = GeneratorConfig.of(level)
+        val structureRegistry = server.registryAccess().lookupOrThrow(Registries.STRUCTURE)
+        val structureUpgrades = levelUpgrade.structureUpgrades.flatMap { upgrade -> upgrade.structures.map { it to upgrade } }
+            .groupBy({ it.first }, { it.second })
+            .mapKeys { (key, _) -> structureRegistry.getValueOrThrow(key) }
         forEachChunk(server, chunkCache, dimensionPath.resolve("region"), regionFileStorage) { chunkPos, _ ->
-            upgradeChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades)
+            upgradeChunk(level, level.chunkAt(chunkPos), generatorConfig, biome2upgrades, structureUpgrades)
         }
     }
 }
@@ -422,6 +433,38 @@ private val wolfVariantUpgrade = object : VariantEntityUpgrade(
         }
 }
 
+val netherFossilStructureUpgrade = object : StructureUpgrade {
+    override val structures = setOf(BuiltinStructures.NETHER_FOSSIL)
+    
+    override fun upgrade(chunk: LevelChunk, level: ServerLevel, structureStart: StructureStart) {
+        structureStart.pieces.forEach { piece ->
+            val templatePosition = (piece as NetherFossilPieces.NetherFossilPiece).templatePosition()
+            if (!level.getBiome(templatePosition).`is`(Biomes.SOUL_SAND_VALLEY)) {
+                return@forEach
+            }
+            val boundingBox = piece.boundingBox
+            val boneBlockCount = BlockPos.betweenClosed(AABB.of(boundingBox))
+                .count { chunk.getBlockState(it).block == Blocks.BONE_BLOCK }
+            if (boneBlockCount < 3) {
+                return@forEach
+            }
+            val random = RandomSource.create(level.seed).forkPositional().at(boundingBox.center)
+            if (random.nextFloat() < 0.5F) {
+                val x = boundingBox.minX() + random.nextInt(boundingBox.xSpan)
+                val y = boundingBox.minY()
+                val z = boundingBox.minZ() + random.nextInt(boundingBox.zSpan)
+                val blockPos = BlockPos(x, y, z)
+                val writeableArea = AccessorChunkGenerator.invokeGetWritableArea(chunk)
+                @Suppress("DEPRECATION")
+                writeableArea.encapsulate(boundingBox)
+                if (level.getBlockState(blockPos).isAir && writeableArea.isInside(blockPos)) {
+                    level.setBlock(blockPos, Blocks.DRIED_GHAST.defaultBlockState().rotate(Rotation.getRandom(random)), Block.UPDATE_CLIENTS)
+                }
+            }
+        }
+    }
+}
+
 val upgradeDefinitions = mapOf(
     "1.21.5" to VersionUpgrade(
         overworldUpgrades = LevelUpgrade(
@@ -451,6 +494,13 @@ val upgradeDefinitions = mapOf(
                 wolfVariantUpgrade
             )
         )
+    ),
+    "1.21.6" to VersionUpgrade(
+        netherUpgrades = LevelUpgrade(
+            structureUpgrades = setOf(
+                netherFossilStructureUpgrade
+            )
+        )
     )
 )
 
@@ -471,10 +521,17 @@ data class VersionUpgrade(
     }
 }
 
+interface StructureUpgrade {
+    val structures: Set<ResourceKey<Structure>>
+    
+    fun upgrade(chunk: LevelChunk, level: ServerLevel, structureStart: StructureStart)
+}
+
 data class LevelUpgrade(
     val decorationUpgrades: Set<DecorationUpgrade> = emptySet(),
     val featureUpgrades: Set<ResourceKey<ConfiguredFeature<*, *>>> = emptySet(),
     val entityUpgrades: Set<VariantEntityUpgrade> = emptySet(),
+    val structureUpgrades: Set<StructureUpgrade> = emptySet(),
 ) {
     fun merge(other: LevelUpgrade) =
         LevelUpgrade(
@@ -483,7 +540,11 @@ data class LevelUpgrade(
             entityUpgrades + other.entityUpgrades
         )
     
-    fun isEmpty() = decorationUpgrades.isEmpty() && featureUpgrades.isEmpty() && entityUpgrades.isEmpty()
+    fun isEmpty() =
+        decorationUpgrades.isEmpty() &&
+        featureUpgrades.isEmpty() &&
+        entityUpgrades.isEmpty() &&
+        structureUpgrades.isEmpty()
     
     companion object {
         val EMPTY = LevelUpgrade()
@@ -494,9 +555,21 @@ private fun upgradeChunk(
     level: ServerLevel,
     chunk: LevelChunk,
     generatorConfig: GeneratorConfig,
-    biome2upgrades: Map<Biome, UpgradeSet>
+    biome2upgrades: Map<Biome, UpgradeSet>,
+    structure2upgrades: Map<Structure, List<StructureUpgrade>>,
 ) {
-    logger.info("Upgrading chunk ${chunk.pos}")
+    logger.info("Upgrading chunk ${level.dimension().location()} ${chunk.pos}")
+    
+    if (structure2upgrades.isNotEmpty() && chunk.hasAnyStructureReferences()) {
+        structure2upgrades.forEach { (structure, structureUpgrades) ->
+            chunk.getStartForStructure(structure)?.let { structureStart ->
+                structureUpgrades.forEach { it.upgrade(chunk, level, structureStart) }
+            }
+        }
+    }
+    
+    if (biome2upgrades.isEmpty()) return
+    
     val worldgenRandom = WorldgenRandom(XoroshiroRandomSource(RandomSupport.generateUniqueSeed()))
     val biomes: MutableSet<Holder<Biome>> = ObjectArraySet()
     ChunkPos.rangeClosed(chunk.pos, 1).forEach { chunkPos ->

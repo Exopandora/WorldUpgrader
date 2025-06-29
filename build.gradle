@@ -47,7 +47,7 @@ loom {
 		"client" {
 			client()
 			programArgs("--username", "Dev")
-			vmArgs("-Dworldupgrader.versions=1.21.5")
+			vmArgs("-Dworldupgrader.versions=1.21.6")
 		}
 	}
 }
