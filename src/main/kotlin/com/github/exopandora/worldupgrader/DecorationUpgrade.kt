@@ -191,6 +191,7 @@ private fun forEachChunk(
     regionFileStorage: RegionFileStorage,
     consumer: (ChunkPos, RegionFile) -> Unit
 ) {
+    if (!Files.exists(dimensionPath)) return
     Files.list(dimensionPath).forEach { mca ->
         val matcher = mcaPattern.matcher(mca.name)
         if (!matcher.matches()) {
