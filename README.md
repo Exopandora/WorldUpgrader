@@ -23,7 +23,7 @@ This mod supports upgrading worlds with features that were introduced in the fol
 
 ### 1.21.6
 #### Structures
-- Nether fossils (Dry Ghasts)
+- Nether fossils (Dried Ghasts)
 
 ## How to upgrade a world
 > [!WARNING]
