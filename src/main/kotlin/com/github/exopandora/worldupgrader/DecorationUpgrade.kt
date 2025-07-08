@@ -84,17 +84,22 @@ private val logger = LoggerFactory.getLogger(DecorationUpgrade::class.java.simpl
 
 fun upgrade(server: MinecraftServer) {
     val versionsToUpgrade = System.getProperty("worldupgrader.versions", "").split(",").toSet()
-    if (versionsToUpgrade.isEmpty()) return
+    val versionUpgrades = compileUpgrades(versionsToUpgrade)
+    if (versionUpgrades.isEmpty()) {
+        logger.info("Skipping world upgrades because no valid versions were specified")
+        return
+    }
+    logger.info("Upgrading worlds with feature set {}", versionsToUpgrade.joinToString())
     val registryAccess = server.registryAccess()
     val biome2features = createBiomeFeatureMap(registryAccess)
     val biomeRegistry = registryAccess.lookupOrThrow(Registries.BIOME)
     biome2features.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features.joinToString(",")}")
     }
-    val versionUpgrades = compileUpgrades(versionsToUpgrade)
     upgradeLevel(server, Level.OVERWORLD, versionUpgrades.overworldUpgrades, biomeRegistry, biome2features)
     upgradeLevel(server, Level.NETHER, versionUpgrades.netherUpgrades, biomeRegistry, biome2features)
     upgradeLevel(server, Level.END, versionUpgrades.endUpgrades, biomeRegistry, biome2features)
+    logger.info("Done upgrading worlds")
 }
 
 private fun compileUpgrades(versions: Set<String>): VersionUpgrade =
@@ -515,6 +520,11 @@ data class VersionUpgrade(
             netherUpgrades.merge(other.netherUpgrades),
             endUpgrades.merge(other.endUpgrades)
         )
+    
+    fun isEmpty()=
+        overworldUpgrades.isEmpty() &&
+        netherUpgrades.isEmpty() &&
+        endUpgrades.isEmpty()
     
     companion object {
         val EMPTY = VersionUpgrade()
