@@ -22,17 +22,4 @@ public class MixinMinecraftServer {
 		// noinspection DataFlowIssue
 		DecorationUpgradeKt.upgrade((MinecraftServer) (Object) this);
 	}
-	
-//	@Inject(
-//		at = @At(
-//			value = "INVOKE",
-//			target = "net/minecraft/server/MinecraftServer.waitUntilNextTick()V",
-//			shift = Shift.AFTER,
-//			ordinal = 1
-//		),
-//		method = "prepareLevels"
-//	)
-//	private void prepareLevels(CallbackInfo ci) {
-//		DecorationUpgradeKt.upgrade((MinecraftServer) (Object) this);
-//	}
 }
