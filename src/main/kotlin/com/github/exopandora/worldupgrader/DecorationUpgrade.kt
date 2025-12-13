@@ -36,8 +36,8 @@ import net.minecraft.data.worldgen.features.VegetationFeatures
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.NbtIo
+import net.minecraft.resources.Identifier
 import net.minecraft.resources.ResourceKey
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerChunkCache
 import net.minecraft.server.level.ServerLevel
@@ -142,7 +142,7 @@ private fun upgradeLevel(
     if (levelUpgrade.isEmpty()) return
     val level = server.getLevel(dimension)!!
     val biome2upgrades = createBiome2upgrades(levelUpgrade, biome2features)
-    logger.info("${level.dimension().location()} biomes to upgrades:")
+    logger.info("${level.dimension().identifier()} biomes to upgrades:")
     biome2upgrades.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features}")
     }
@@ -175,7 +175,7 @@ private fun upgradeEntities(
     chunkPos: ChunkPos,
     regionFile: RegionFile,
     level: ServerLevel,
-    entityUpgrades: Map<ResourceLocation, EntityUpgrade>
+    entityUpgrades: Map<Identifier, EntityUpgrade>
 ) {
     logger.info("Upgrading entities in chunk $chunkPos")
     val chunkTag = regionFile.getChunkDataInputStream(chunkPos)
@@ -422,19 +422,19 @@ private val pigVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistrie
 
 private val wolfVariantUpgrade = object : VariantEntityUpgrade(
     entityId = BuiltInRegistries.ENTITY_TYPE.getKey(EntityType.WOLF),
-    defaultVariant = WolfVariants.PALE.location()
+    defaultVariant = WolfVariants.PALE.identifier()
 ) {
-    override fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): ResourceLocation =
+    override fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): Identifier =
         when {
-            biome.`is`(BiomeTags.IS_SAVANNA) -> WolfVariants.SPOTTED.location()
-            biome.`is`(Biomes.GROVE) -> WolfVariants.SNOWY.location()
-            biome.`is`(Biomes.OLD_GROWTH_PINE_TAIGA) -> WolfVariants.BLACK.location()
-            biome.`is`(Biomes.SNOWY_TAIGA) -> WolfVariants.ASHEN.location()
-            biome.`is`(BiomeTags.IS_JUNGLE) -> WolfVariants.RUSTY.location()
-            biome.`is`(Biomes.FOREST) -> WolfVariants.WOODS.location()
-            biome.`is`(Biomes.OLD_GROWTH_SPRUCE_TAIGA) -> WolfVariants.CHESTNUT.location()
-            biome.`is`(BiomeTags.IS_BADLANDS) -> WolfVariants.STRIPED.location()
-            else -> WolfVariants.PALE.location()
+            biome.`is`(BiomeTags.IS_SAVANNA) -> WolfVariants.SPOTTED.identifier()
+            biome.`is`(Biomes.GROVE) -> WolfVariants.SNOWY.identifier()
+            biome.`is`(Biomes.OLD_GROWTH_PINE_TAIGA) -> WolfVariants.BLACK.identifier()
+            biome.`is`(Biomes.SNOWY_TAIGA) -> WolfVariants.ASHEN.identifier()
+            biome.`is`(BiomeTags.IS_JUNGLE) -> WolfVariants.RUSTY.identifier()
+            biome.`is`(Biomes.FOREST) -> WolfVariants.WOODS.identifier()
+            biome.`is`(Biomes.OLD_GROWTH_SPRUCE_TAIGA) -> WolfVariants.CHESTNUT.identifier()
+            biome.`is`(BiomeTags.IS_BADLANDS) -> WolfVariants.STRIPED.identifier()
+            else -> WolfVariants.PALE.identifier()
         }
 }
 
@@ -568,7 +568,7 @@ private fun upgradeChunk(
     biome2upgrades: Map<Biome, UpgradeSet>,
     structure2upgrades: Map<Structure, List<StructureUpgrade>>,
 ) {
-    logger.info("Upgrading chunk ${level.dimension().location()} ${chunk.pos}")
+    logger.info("Upgrading chunk ${level.dimension().identifier()} ${chunk.pos}")
     
     if (structure2upgrades.isNotEmpty() && chunk.hasAnyStructureReferences()) {
         structure2upgrades.forEach { (structure, structureUpgrades) ->
@@ -626,11 +626,11 @@ private fun upgradeEntities(
     level: ServerLevel,
     chunk: Lazy<LevelChunk>,
     entities: List<CompoundTag>,
-    entityUpgrades: Map<ResourceLocation, EntityUpgrade>
+    entityUpgrades: Map<Identifier, EntityUpgrade>
 ) {
     entities.forEach { entity ->
         entity.getString("id")
-            .map { entityId -> entityUpgrades[ResourceLocation.parse(entityId)] }
+            .map { entityId -> entityUpgrades[Identifier.parse(entityId)] }
             .ifPresent { upgrade -> upgrade.upgrade(chunk.value, entity, level) }
     }
 }
@@ -643,32 +643,32 @@ data class UpgradeSet(
 sealed interface Upgrade
 
 interface EntityUpgrade : Upgrade {
-    val entityId: ResourceLocation
+    val entityId: Identifier
     fun upgrade(chunk: LevelChunk, entity: CompoundTag, level: ServerLevel)
 }
 
 abstract class VariantEntityUpgrade(
-    override val entityId: ResourceLocation,
-    protected val defaultVariant: ResourceLocation?
+    override val entityId: Identifier,
+    protected val defaultVariant: Identifier?
 ) : EntityUpgrade {
-    abstract fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): ResourceLocation
+    abstract fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): Identifier
     
     override fun upgrade(chunk: LevelChunk, entity: CompoundTag, level: ServerLevel) {
         val pos = entity.read("Pos", Vec3.CODEC)
             .map { BlockPos(it.x.toInt(), it.y.toInt(), it.z.toInt()) }
             .orElse(BlockPos.ZERO)
-        val currentVariant = entity.read("variant", ResourceLocation.CODEC)
+        val currentVariant = entity.read("variant", Identifier.CODEC)
         if (currentVariant.isEmpty || currentVariant.get() == defaultVariant) {
             val updatedVariant = variant(pos, level, chunk.getNoiseBiome(pos.x, pos.y, pos.z))
-            entity.store("variant", ResourceLocation.CODEC, updatedVariant)
+            entity.store("variant", Identifier.CODEC, updatedVariant)
         }
     }
 }
 
 class TemperatureVariantEntityUpgrade(
-    entityId: ResourceLocation
+    entityId: Identifier
 ) : VariantEntityUpgrade(entityId, TemperatureVariants.TEMPERATE) {
-    override fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): ResourceLocation =
+    override fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): Identifier =
         when {
             biome.`is`(BiomeTags.SPAWNS_COLD_VARIANT_FARM_ANIMALS) -> TemperatureVariants.COLD
             biome.`is`(BiomeTags.SPAWNS_WARM_VARIANT_FARM_ANIMALS) -> TemperatureVariants.WARM
@@ -742,10 +742,10 @@ data class GeneratorConfig(
         fun of(level: ServerLevel): GeneratorConfig {
             val biomeSource = (level.chunkSource.chunkMap as AccessorChunkMap).worldGenContext.generator.biomeSource
             val generationSettingsGetter = { holder: Holder<Biome> -> holder.value().generationSettings }
-            val featuresPerStep = Suppliers.memoize<List<StepFeatureData>> {
+            val featuresPerStep = Suppliers.memoize {
                 FeatureSorter.buildFeaturesPerStep(
                     biomeSource.possibleBiomes().toList(),
-                    { holder: Holder<Biome> -> (generationSettingsGetter(holder) as BiomeGenerationSettings).features() },
+                    { holder: Holder<Biome> -> generationSettingsGetter(holder).features() },
                     true
                 )
             }
