@@ -114,7 +114,7 @@ private fun createBiomeFeatureMap(
             .flatMap { it.stream() }
             .map { it.value() }
             .flatMap { it.features }
-            .map { configuredFeatureRegistry.getResourceKey(it) }
+            .map { configuredFeatureRegistry.getResourceKey(it.value()) }
             .filter { it.isPresent }
             .map { it.get() }
             .collect(Collectors.toSet())
@@ -392,7 +392,7 @@ private val darkOakDecorationUpgrade = object : PillarMatchingDecorationUpgrade(
 
 private val cactusDecorationUpgrade = object : PillarMatchingDecorationUpgrade() {
     override val features = setOf(
-        VegetationFeatures.PATCH_CACTUS
+        VegetationFeatures.CACTUS
     )
     
     override val pillarDefinition = listOf(
@@ -481,11 +481,10 @@ val upgradeDefinitions = mapOf(
                 cactusDecorationUpgrade
             ),
             featureUpgrades = setOf(
-                VegetationFeatures.PATCH_DRY_GRASS,
-                VegetationFeatures.PATCH_BUSH,
-                VegetationFeatures.PATCH_FIREFLY_BUSH,
-                VegetationFeatures.WILDFLOWERS_BIRCH_FOREST,
-                VegetationFeatures.WILDFLOWERS_MEADOW,
+                VegetationFeatures.DRY_GRASS,
+                VegetationFeatures.BUSH,
+                VegetationFeatures.FIREFLY_BUSH,
+                VegetationFeatures.WILDFLOWER,
                 TreeFeatures.FALLEN_OAK_TREE,
                 TreeFeatures.FALLEN_JUNGLE_TREE,
                 TreeFeatures.FALLEN_SPRUCE_TREE,
@@ -656,7 +655,7 @@ abstract class VariantEntityUpgrade(
     override fun upgrade(chunk: LevelChunk, entity: CompoundTag, level: ServerLevel) {
         val pos = entity.read("Pos", Vec3.CODEC)
             .map { BlockPos(it.x.toInt(), it.y.toInt(), it.z.toInt()) }
-            .orElse(BlockPos.ZERO)
+            .orElse(BlockPos.ZERO)!!
         val currentVariant = entity.read("variant", Identifier.CODEC)
         if (currentVariant.isEmpty || currentVariant.get() == defaultVariant) {
             val updatedVariant = variant(pos, level, chunk.getNoiseBiome(pos.x, pos.y, pos.z))
