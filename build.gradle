@@ -5,7 +5,7 @@ plugins {
 	id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
 	id 'maven-publish'
 	id 'idea'
-	id "org.jetbrains.kotlin.jvm" version "2.3.10"
+	id "org.jetbrains.kotlin.jvm" version "2.3.20"
 }
 
 version = project.mod_version
