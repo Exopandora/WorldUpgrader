@@ -2,33 +2,14 @@ package com.github.exopandora.worldupgrader
 
 import com.github.exopandora.worldupgrader.PillarEntry.Companion.optional
 import com.github.exopandora.worldupgrader.PillarEntry.Companion.required
-import com.github.exopandora.worldupgrader.mixin.AccessorBlockableEventLoop
-import com.github.exopandora.worldupgrader.mixin.AccessorChunkGenerator
-import com.github.exopandora.worldupgrader.mixin.AccessorChunkMap
-import com.github.exopandora.worldupgrader.mixin.AccessorEntityStorage
-import com.github.exopandora.worldupgrader.mixin.AccessorIOWorker
-import com.github.exopandora.worldupgrader.mixin.AccessorMinecraftServer
-import com.github.exopandora.worldupgrader.mixin.AccessorPersistentEntitySectionManager
-import com.github.exopandora.worldupgrader.mixin.AccessorRegionFileStorage
-import com.github.exopandora.worldupgrader.mixin.AccessorServerLevel
-import com.github.exopandora.worldupgrader.mixin.AccessorSimpleRegionStorage
+import com.github.exopandora.worldupgrader.mixin.*
 import com.google.common.base.Suppliers
 import it.unimi.dsi.fastutil.ints.IntArraySet
 import it.unimi.dsi.fastutil.ints.IntSet
 import it.unimi.dsi.fastutil.objects.ObjectArraySet
-import java.nio.file.Files
-import java.nio.file.Path
-import java.util.Arrays
-import java.util.function.Supplier
-import java.util.stream.Collectors
-import kotlin.io.path.name
 import net.minecraft.CrashReport
 import net.minecraft.ReportedException
-import net.minecraft.core.BlockPos
-import net.minecraft.core.Holder
-import net.minecraft.core.Registry
-import net.minecraft.core.RegistryAccess
-import net.minecraft.core.SectionPos
+import net.minecraft.core.*
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.data.worldgen.features.TreeFeatures
@@ -45,16 +26,12 @@ import net.minecraft.tags.BiomeTags
 import net.minecraft.tags.BlockTags
 import net.minecraft.tags.TagKey
 import net.minecraft.util.RandomSource
-import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.animal.TemperatureVariants
 import net.minecraft.world.entity.animal.wolf.WolfVariants
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.Level
-import net.minecraft.world.level.biome.Biome
-import net.minecraft.world.level.biome.BiomeGenerationSettings
-import net.minecraft.world.level.biome.BiomeSource
-import net.minecraft.world.level.biome.Biomes
-import net.minecraft.world.level.biome.FeatureSorter
+import net.minecraft.world.level.biome.*
 import net.minecraft.world.level.biome.FeatureSorter.StepFeatureData
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
@@ -79,6 +56,12 @@ import net.minecraft.world.level.levelgen.structure.structures.NetherFossilPiece
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.slf4j.LoggerFactory
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.*
+import java.util.function.Supplier
+import java.util.stream.Collectors
+import kotlin.io.path.name
 
 private val logger = LoggerFactory.getLogger(DecorationUpgrade::class.java.simpleName)
 
@@ -416,12 +399,12 @@ private val cactusDecorationUpgrade = object : PillarMatchingDecorationUpgrade()
     }
 }
 
-private val chickenVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityType.CHICKEN))
-private val cowVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityType.COW))
-private val pigVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityType.PIG))
+private val chickenVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityTypes.CHICKEN))
+private val cowVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityTypes.COW))
+private val pigVariantUpgrade = TemperatureVariantEntityUpgrade(BuiltInRegistries.ENTITY_TYPE.getKey(EntityTypes.PIG))
 
 private val wolfVariantUpgrade = object : VariantEntityUpgrade(
-    entityId = BuiltInRegistries.ENTITY_TYPE.getKey(EntityType.WOLF),
+    entityId = BuiltInRegistries.ENTITY_TYPE.getKey(EntityTypes.WOLF),
     defaultVariant = WolfVariants.PALE.identifier()
 ) {
     override fun variant(pos: BlockPos, level: ServerLevel, biome: Holder<Biome>): Identifier =

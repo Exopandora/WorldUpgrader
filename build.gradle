@@ -2,10 +2,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-	id 'net.fabricmc.fabric-loom' version '1.16-SNAPSHOT'
+	id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
 	id 'maven-publish'
 	id 'idea'
-	id "org.jetbrains.kotlin.jvm" version "2.3.20"
+	id "org.jetbrains.kotlin.jvm" version "2.4.0"
 }
 
 version = project.mod_version
@@ -46,8 +46,8 @@ loom {
 	runs {
 		"client" {
 			client()
-			programArgs("--username", "Dev")
-			vmArgs("-Dworldupgrader.versions=1.21.6")
+			programArguments.addAll("--username", "Dev")
+			jvmArguments.add("-Dworldupgrader.versions=1.21.6")
 		}
 	}
 }
