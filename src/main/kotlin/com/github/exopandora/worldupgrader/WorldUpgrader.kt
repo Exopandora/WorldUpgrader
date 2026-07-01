@@ -54,9 +54,12 @@ fun upgrade(server: MinecraftServer) {
     biome2features.forEach { (biome, features) ->
         logger.info("${biomeRegistry.getKey(biome)}=${features.joinToString(",")}")
     }
-    upgradeLevel(server, Level.OVERWORLD, versionUpgrades.overworldUpgrades, biomeRegistry, biome2features)
-    upgradeLevel(server, Level.NETHER, versionUpgrades.netherUpgrades, biomeRegistry, biome2features)
-    upgradeLevel(server, Level.END, versionUpgrades.endUpgrades, biomeRegistry, biome2features)
+    server.levelKeys().forEach { dimensionKey ->
+        val levelUpgrade = versionUpgrades[dimensionKey]
+        if (levelUpgrade?.isEmpty() == false) {
+            upgradeLevel(server, dimensionKey, levelUpgrade, biomeRegistry, biome2features)
+        }
+    }
     logger.info("Done upgrading worlds")
 }
 
@@ -100,7 +103,6 @@ private fun upgradeLevel(
     biomeRegistry: Registry<Biome>,
     biome2features: Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>>
 ) {
-    if (levelUpgrade.isEmpty()) return
     val level = server.getLevel(dimension)!!
     val biome2upgrades = createBiome2upgrades(levelUpgrade, biome2features)
     logger.info("${level.dimension().identifier()} biomes to upgrades:")

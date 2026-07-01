@@ -3,11 +3,12 @@ package com.github.exopandora.worldupgrader
 import net.minecraft.data.worldgen.features.TreeFeatures
 import net.minecraft.data.worldgen.features.VegetationFeatures
 import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
 
 val upgradeIndex = mapOf(
     "1.21.5" to VersionUpgrade(
-        overworldUpgrades = LevelUpgrade(
+        Level.OVERWORLD to LevelUpgrade(
             decorationUpgrades = setOf(
                 oakDecorationUpgrade,
                 fanyOakDecorationUpgrade,
@@ -35,7 +36,7 @@ val upgradeIndex = mapOf(
         )
     ),
     "1.21.6" to VersionUpgrade(
-        netherUpgrades = LevelUpgrade(
+        Level.NETHER to LevelUpgrade(
             structureUpgrades = setOf(
                 netherFossilStructureUpgrade,
             )
@@ -44,22 +45,26 @@ val upgradeIndex = mapOf(
 )
 
 data class VersionUpgrade(
-    val overworldUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
-    val netherUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
-    val endUpgrades: LevelUpgrade = LevelUpgrade.EMPTY,
+    private val dimension2upgrades: Map<ResourceKey<Level>, LevelUpgrade>
 ) {
-    fun merge(other: VersionUpgrade) =
-        VersionUpgrade(
-            overworldUpgrades.merge(other.overworldUpgrades),
-            netherUpgrades.merge(other.netherUpgrades),
-            endUpgrades.merge(other.endUpgrades),
-        )
-
-    fun isEmpty()=
-        overworldUpgrades.isEmpty() &&
-            netherUpgrades.isEmpty() &&
-            endUpgrades.isEmpty()
-
+    constructor(vararg pairs: Pair<ResourceKey<Level>, LevelUpgrade>) : this(mapOf(*pairs))
+    
+    operator fun get(dimensionKey: ResourceKey<Level>): LevelUpgrade? =
+        dimension2upgrades[dimensionKey]
+    
+    fun merge(other: VersionUpgrade): VersionUpgrade {
+        val result = dimension2upgrades.toMutableMap()
+        other.dimension2upgrades.forEach { (key, upgrade) ->
+            result.compute(key) { _, v ->
+                v?.merge(upgrade) ?: upgrade
+            }
+        }
+        return VersionUpgrade(result)
+    }
+    
+    fun isEmpty() =
+        dimension2upgrades.isEmpty() || dimension2upgrades.values.all { it.isEmpty() }
+    
     companion object {
         val EMPTY = VersionUpgrade()
     }
@@ -77,16 +82,12 @@ data class LevelUpgrade(
             featureUpgrades + other.featureUpgrades,
             entityUpgrades + other.entityUpgrades,
         )
-
+    
     fun isEmpty() =
         decorationUpgrades.isEmpty() &&
             featureUpgrades.isEmpty() &&
             entityUpgrades.isEmpty() &&
             structureUpgrades.isEmpty()
-
-    companion object {
-        val EMPTY = LevelUpgrade()
-    }
 }
 
 sealed interface Upgrade
