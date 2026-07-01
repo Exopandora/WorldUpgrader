@@ -2,17 +2,14 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-	id("net.fabricmc.fabric-loom") version "1.17-SNAPSHOT"
 	id("idea")
-	id("org.jetbrains.kotlin.jvm") version "2.4.0"
+	alias(libs.plugins.kotlin)
+	alias(libs.plugins.fabricloom)
 }
 
 val modVersion: String by project
-val minecraftVersion: String by project
 val mavenGroup: String by project
 val archivesBaseName: String by project
-val loaderVersion: String by project
-val fabricKotlinVersion: String by project
 val javaVersion: String by project
 val javaToolchainVersion: String by project
 
@@ -38,9 +35,9 @@ idea {
 }
 
 dependencies {
-	minecraft("com.mojang:minecraft:${minecraftVersion}")
-	implementation("net.fabricmc:fabric-loader:${loaderVersion}")
-	implementation("net.fabricmc:fabric-language-kotlin:${fabricKotlinVersion}")
+	minecraft(libs.minecraft.fabric)
+	implementation(libs.fabric.loader)
+	implementation(libs.fabric.kotlin)
 }
 
 loom {
