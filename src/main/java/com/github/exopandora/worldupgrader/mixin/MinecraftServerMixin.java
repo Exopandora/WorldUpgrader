@@ -1,6 +1,6 @@
 package com.github.exopandora.worldupgrader.mixin;
 
-import com.github.exopandora.worldupgrader.DecorationUpgradeKt;
+import com.github.exopandora.worldupgrader.WorldUpgraderKt;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,6 +20,6 @@ public class MinecraftServerMixin {
 	)
 	private void runServer(CallbackInfo ci) {
 		// noinspection DataFlowIssue
-		DecorationUpgradeKt.upgrade((MinecraftServer) (Object) this);
+		WorldUpgraderKt.upgrade((MinecraftServer) (Object) this);
 	}
 }
