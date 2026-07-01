@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 import java.io.IOException;
 
 @Mixin(RegionFileStorage.class)
-public interface AccessorRegionFileStorage
+public interface RegionFileStorageAccessor
 {
 	@Invoker
 	RegionFile invokeGetRegionFile(ChunkPos chunkPos) throws IOException;

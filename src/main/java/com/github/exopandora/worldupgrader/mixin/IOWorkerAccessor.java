@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(IOWorker.class)
-public interface AccessorIOWorker
+public interface IOWorkerAccessor
 {
 	@Accessor
 	RegionFileStorage getStorage();

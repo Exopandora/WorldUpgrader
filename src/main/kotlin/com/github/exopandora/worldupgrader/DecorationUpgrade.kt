@@ -131,13 +131,13 @@ private fun upgradeLevel(
     }
     val chunkCache = level.chunkSource
     val chunkMap = chunkCache.chunkMap
-    val regionFileStorage = (chunkMap.chunkScanner() as AccessorIOWorker).storage
-    val storageSource = (server as AccessorMinecraftServer).storageSource
+    val regionFileStorage = (chunkMap.chunkScanner() as IOWorkerAccessor).storage
+    val storageSource = (server as MinecraftServerAccessor).storageSource
     val dimensionPath = storageSource.getDimensionPath(level.dimension())
     
     if (levelUpgrade.entityUpgrades.isNotEmpty()) {
         val entityUpgrades = levelUpgrade.entityUpgrades.associateBy { it.entityId }
-        val entityRegionFileStorage = (((((level as AccessorServerLevel).entityManager as AccessorPersistentEntitySectionManager<*>).permanentStorage as AccessorEntityStorage).simpleRegionStorage as AccessorSimpleRegionStorage).worker as AccessorIOWorker).storage
+        val entityRegionFileStorage = (((((level as ServerLevelAccessor).entityManager as PersistentEntitySectionManagerAccessor<*>).permanentStorage as EntityStorageAccessor).simpleRegionStorage as SimpleRegionStorageAccessor).worker as IOWorkerAccessor).storage
         forEachChunk(server, chunkCache, dimensionPath.resolve("entities"), entityRegionFileStorage) { chunkPos, regionFile ->
             upgradeEntities(chunkPos, regionFile, level, entityUpgrades)
         }
@@ -204,16 +204,16 @@ private fun forEachChunk(
             val fromChunkPos = ChunkPos.ZERO.atRegionOffset(regionOffset)
             val toChunkPos = ChunkPos(31, 31).atRegionOffset(regionOffset)
             @Suppress("CAST_NEVER_SUCCEEDS")
-            val regionFile = (regionFileStorage as AccessorRegionFileStorage).invokeGetRegionFile(fromChunkPos)
+            val regionFile = (regionFileStorage as RegionFileStorageAccessor).invokeGetRegionFile(fromChunkPos)
             val positions = ChunkPos.rangeClosed(fromChunkPos, toChunkPos)
                 .filter { chunkPos -> regionFile.hasChunk(chunkPos) }
                 .collect(Collectors.toList())
             positions.forEach { chunkPos -> consumer(chunkPos, regionFile) }
             regionFileStorage.flush()
-            while ((chunkSource.chunkMap as AccessorChunkMap).updatingChunkMap.size > 3000) {
+            while ((chunkSource.chunkMap as ChunkMapAccessor).updatingChunkMap.size > 3000) {
                 chunkSource.tick({ true }, true)
-                (server as AccessorBlockableEventLoop).invokeRunAllTasks()
-                with(server as AccessorMinecraftServer) {
+                (server as BlockableEventLoopAccessor).invokeRunAllTasks()
+                with(server as MinecraftServerAccessor) {
                     setWaitingForNextTick(true)
                     try {
                         server.managedBlock { server.pendingTasksCount == 0 }
@@ -442,7 +442,7 @@ val netherFossilStructureUpgrade = object : StructureUpgrade {
                 val y = boundingBox.minY()
                 val z = boundingBox.minZ() + random.nextInt(boundingBox.zSpan)
                 val blockPos = BlockPos(x, y, z)
-                val writeableArea = AccessorChunkGenerator.invokeGetWritableArea(chunk)
+                val writeableArea = ChunkGeneratorAccessor.invokeGetWritableArea(chunk)
                 @Suppress("DEPRECATION")
                 writeableArea.encapsulate(boundingBox)
                 if (level.getBlockState(blockPos).isAir && writeableArea.isInside(blockPos)) {
@@ -722,7 +722,7 @@ data class GeneratorConfig(
 ) {
     companion object {
         fun of(level: ServerLevel): GeneratorConfig {
-            val biomeSource = (level.chunkSource.chunkMap as AccessorChunkMap).worldGenContext.generator.biomeSource
+            val biomeSource = (level.chunkSource.chunkMap as ChunkMapAccessor).worldGenContext.generator.biomeSource
             val generationSettingsGetter = { holder: Holder<Biome> -> holder.value().generationSettings }
             val featuresPerStep = Suppliers.memoize {
                 FeatureSorter.buildFeaturesPerStep(

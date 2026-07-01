@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(ChunkMap.class)
-public interface AccessorChunkMap
+public interface ChunkMapAccessor
 {
 	@Accessor
 	WorldGenContext getWorldGenContext();
