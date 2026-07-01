@@ -7,11 +7,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(ChunkGenerator.class)
-public interface ChunkGeneratorAccessor
-{
+public interface ChunkGeneratorAccessor {
 	@Invoker
-	static BoundingBox invokeGetWritableArea(ChunkAccess chunkAccess)
-	{
+	static BoundingBox invokeGetWritableArea(ChunkAccess chunkAccess) {
 		throw new AssertionError();
 	}
 }
