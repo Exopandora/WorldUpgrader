@@ -12,9 +12,9 @@
 		"MinecraftServerMixin",
 		"PersistentEntitySectionManagerAccessor",
 		"RegionFileStorageAccessor",
-		"RegionFileStorageMixin"
+		"RegionFileStorageMixin",
 		"ServerLevelAccessor",
-		"SimpleRegionStorageAccessor",
+		"SimpleRegionStorageAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
