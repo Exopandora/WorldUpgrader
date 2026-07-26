@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 @Mixin(RegionFileStorage.class)
 public class RegionFileStorageMixin {
 	@ModifyConstant(
-		method = "getRegionFile",
+		method = "cache",
 		constant = @Constant(intValue = 256)
 	)
 	private int maxRegionFileCacheSize(int original) {

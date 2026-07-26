@@ -28,7 +28,8 @@ import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.level.levelgen.RandomSupport
 import net.minecraft.world.level.levelgen.WorldgenRandom
 import net.minecraft.world.level.levelgen.XoroshiroRandomSource
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
+import net.minecraft.world.level.levelgen.feature.Feature
+import net.minecraft.world.level.levelgen.placement.FeaturePlacer
 import net.minecraft.world.level.levelgen.structure.Structure
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -71,8 +72,8 @@ private fun compileUpgrades(versions: Set<String>): VersionUpgrade =
 
 private fun createBiomeFeatureMap(
     registryAccess: RegistryAccess
-): Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>> {
-    val configuredFeatureRegistry = registryAccess.lookupOrThrow(Registries.CONFIGURED_FEATURE)
+): Map<Biome, Set<ResourceKey<Feature>>> {
+    val configuredFeatureRegistry = registryAccess.lookupOrThrow(Registries.FEATURE)
     return registryAccess.lookupOrThrow(Registries.BIOME).associateWith { biome ->
         biome.generationSettings.features().stream()
             .flatMap { it.stream() }
@@ -87,7 +88,7 @@ private fun createBiomeFeatureMap(
 
 private fun createBiome2upgrades(
     levelUpgrade: LevelUpgrade,
-    biome2features: Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>>
+    biome2features: Map<Biome, Set<ResourceKey<Feature>>>
 ) = biome2features.mapValues { (_, features) ->
         UpgradeSet(
             levelUpgrade.decorationUpgrades.filter { upgrade -> upgrade.features.intersect(features).isNotEmpty() }.toSet(),
@@ -101,7 +102,7 @@ private fun upgradeLevel(
     dimension: ResourceKey<Level>,
     levelUpgrade: LevelUpgrade,
     biomeRegistry: Registry<Biome>,
-    biome2features: Map<Biome, Set<ResourceKey<ConfiguredFeature<*, *>>>>
+    biome2features: Map<Biome, Set<ResourceKey<Feature>>>
 ) {
     val level = server.getLevel(dimension)!!
     val biome2upgrades = createBiome2upgrades(levelUpgrade, biome2features)
@@ -191,7 +192,7 @@ private fun forEachChunk(
             val fromChunkPos = ChunkPos.ZERO.atRegionOffset(regionOffset)
             val toChunkPos = ChunkPos(31, 31).atRegionOffset(regionOffset)
             @Suppress("CAST_NEVER_SUCCEEDS")
-            val regionFile = (regionFileStorage as RegionFileStorageAccessor).invokeGetRegionFile(fromChunkPos)
+            val regionFile = (regionFileStorage as RegionFileStorageAccessor).invokeGetRegionFile(fromChunkPos, false)
             val positions = ChunkPos.rangeClosed(fromChunkPos, toChunkPos)
                 .filter { chunkPos -> regionFile.hasChunk(chunkPos) }
                 .collect(Collectors.toList())
@@ -279,7 +280,7 @@ private fun upgradeChunk(
 
 data class UpgradeSet(
     val decorationUpgrades: Set<DecorationUpgrade>,
-    val featureUpgrades: Set<ResourceKey<ConfiguredFeature<*, *>>>
+    val featureUpgrades: Set<ResourceKey<Feature>>
 )
 
 data class GeneratorConfig(
@@ -304,7 +305,7 @@ data class GeneratorConfig(
 }
 
 private fun placeFeatures(
-    featuresToPlace: Set<ResourceKey<ConfiguredFeature<*, *>>>,
+    featuresToPlace: Set<ResourceKey<Feature>>,
     chunk: LevelChunk,
     level: ServerLevel,
     biomes: Set<Holder<Biome>>,
@@ -312,49 +313,51 @@ private fun placeFeatures(
     worldgenRandom: WorldgenRandom
 ) {
     val sectionPos = SectionPos.of(chunk.pos, level.minSectionY)
-    val blockPos = sectionPos.origin()
-    val placedFeatureRegistry = level.registryAccess().lookupOrThrow(Registries.PLACED_FEATURE)
-    val featuresPerStep = generatorConfig.featuresPerStep.get()
-    val featuresPerStepCount = featuresPerStep.size
-    val decorationSeed = worldgenRandom.setDecorationSeed(level.seed, blockPos.x, blockPos.z)
+    val origin = sectionPos.origin()
+    val featureRegistry = level.registryAccess().lookupOrThrow(Registries.PLACED_FEATURE)
+    val featureList = generatorConfig.featuresPerStep.get()
+    val featureStepCount = featureList.size
+    val decorationSeed = worldgenRandom.setDecorationSeed(level.seed, origin.x, origin.z)
+    val placer = FeaturePlacer(level, level.chunkSource.generator)
     
-    for (x in 0..< featuresPerStepCount) {
-        val intSet: IntSet = IntArraySet()
+    for (stepIndex in 0..< featureStepCount) {
+        val possibleFeaturesThisStep: IntSet = IntArraySet()
         
-        for (biomeHolder in biomes) {
-            val features = generatorConfig.generationSettingsGetter(biomeHolder).features()
-            if (x < features.size) {
-                val stepFeatureData = featuresPerStep[x]
-                features[x].stream()
+        for (biome in biomes) {
+            val featuresInBiome = generatorConfig.generationSettingsGetter(biome).features()
+            if (stepIndex < featuresInBiome.size) {
+                val featuresInBiomeThisStep = featuresInBiome[stepIndex]
+                val stepFeatureData = featureList[stepIndex]
+                featuresInBiomeThisStep.stream()
                     .map { it.value() }
-                    .forEach { intSet.add(stepFeatureData.indexMapping().applyAsInt(it)) }
+                    .forEach { possibleFeaturesThisStep.add(stepFeatureData.indexMapping().applyAsInt(it)) }
             }
         }
         
-        val n = intSet.size
-        val placedFeatureLookup = intSet.toIntArray()
-        Arrays.sort(placedFeatureLookup)
-        val stepFeatureData2 = featuresPerStep[x]
+        val numberOfFeaturesInStep = possibleFeaturesThisStep.size
+        val indexArray = possibleFeaturesThisStep.toIntArray()
+        Arrays.sort(indexArray)
+        val stepFeatureData = featureList[stepIndex]
         
-        for (y in 0..< n) {
-            val placedFeatureIndex = placedFeatureLookup[y]
-            val placedFeature = stepFeatureData2.features()[placedFeatureIndex]
-            if (featuresToPlace.none(placedFeature.feature::`is`)) {
+        for (featureIndex in 0..< numberOfFeaturesInStep) {
+            val globalIndexOfFeature = indexArray[featureIndex]
+            val feature = stepFeatureData.features()[globalIndexOfFeature]
+            if (featuresToPlace.none(feature.feature::`is`)) {
                 continue
             }
-            val featureToGenerate = {
-                placedFeatureRegistry.getResourceKey(placedFeature)
+            val currentlyGenerating = {
+                featureRegistry.getResourceKey(feature)
                     .map { it.toString() }
-                    .orElseGet { placedFeature.toString() }
+                    .orElseGet { feature.toString() }
             }
-            worldgenRandom.setFeatureSeed(decorationSeed, placedFeatureIndex, x)
+            worldgenRandom.setFeatureSeed(decorationSeed, globalIndexOfFeature, stepIndex)
             
             try {
-                level.setCurrentlyGenerating(featureToGenerate)
-                placedFeature.placeWithBiomeCheck(level, level.chunkSource.generator, worldgenRandom, blockPos)
+                level.setCurrentlyGenerating(currentlyGenerating)
+                placer.placeWithBiomeCheck(feature, worldgenRandom, origin)
             } catch (e: Exception) {
                 val crashReport = CrashReport.forThrowable(e, "Feature placement")
-                crashReport.addCategory("Feature").setDetail("Description", featureToGenerate)
+                crashReport.addCategory("Feature").setDetail("Description", currentlyGenerating)
                 throw ReportedException(crashReport)
             }
         }

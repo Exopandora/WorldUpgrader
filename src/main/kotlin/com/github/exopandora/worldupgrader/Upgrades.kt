@@ -4,7 +4,7 @@ import net.minecraft.data.worldgen.features.TreeFeatures
 import net.minecraft.data.worldgen.features.VegetationFeatures
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.level.Level
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
+import net.minecraft.world.level.levelgen.feature.Feature
 
 val upgradeIndex = mapOf(
     "1.21.5" to VersionUpgrade(
@@ -72,7 +72,7 @@ data class VersionUpgrade(
 
 data class LevelUpgrade(
     val decorationUpgrades: Set<DecorationUpgrade> = emptySet(),
-    val featureUpgrades: Set<ResourceKey<ConfiguredFeature<*, *>>> = emptySet(),
+    val featureUpgrades: Set<ResourceKey<Feature>> = emptySet(),
     val entityUpgrades: Set<EntityUpgrade> = emptySet(),
     val structureUpgrades: Set<StructureUpgrade> = emptySet(),
 ) {

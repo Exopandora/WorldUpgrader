@@ -47,7 +47,7 @@ loom {
 		named("client") {
 			client()
 			programArguments.addAll("--username", "Dev")
-			jvmArguments.add("-Dworldupgrader.versions=1.21.6")
+			jvmArguments.add("-Dworldupgrader.versions=1.21.5")
 		}
 	}
 }

@@ -11,5 +11,5 @@ import java.io.IOException;
 @Mixin(RegionFileStorage.class)
 public interface RegionFileStorageAccessor {
 	@Invoker
-	RegionFile invokeGetRegionFile(ChunkPos chunkPos) throws IOException;
+	RegionFile invokeGetRegionFile(ChunkPos chunkPos, boolean create) throws IOException;
 }

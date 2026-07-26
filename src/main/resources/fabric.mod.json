@@ -15,9 +15,9 @@
 		"worldupgrader.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.16.14",
-		"minecraft": ">=1.21.6",
-		"java": ">=21"
+		"fabricloader": ">=0.19.5",
+		"minecraft": ">=26.3",
+		"java": ">=25"
 	},
 	"accessWidener": "worldupgrader.accesswidener"
 }

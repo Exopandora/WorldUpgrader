@@ -18,8 +18,8 @@ import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature
-import net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration
+import net.minecraft.world.level.levelgen.feature.Feature
+import net.minecraft.world.level.levelgen.feature.TreeFeature
 import net.minecraft.world.level.levelgen.feature.treedecorators.PlaceOnGroundDecorator
 import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecorator
 
@@ -138,7 +138,7 @@ val cactusDecorationUpgrade = object : PillarMatchingDecorationUpgrade() {
 }
 
 interface DecorationUpgrade : Upgrade {
-    val features: Set<ResourceKey<ConfiguredFeature<*, *>>>
+    val features: Set<ResourceKey<Feature>>
     fun test(level: Level, pos: BlockPos, blockState: BlockState): BlockPos?
     fun place(level: ServerLevel, random: RandomSource, testPos: BlockPos, resultPos: BlockPos, biome: Holder<Biome>)
 }
@@ -222,14 +222,14 @@ interface PillarEntry {
 
 abstract class AbstractDecorationUpgrade : DecorationUpgrade {
     fun placeLeafLitter(
-        configuredFeatureKey: ResourceKey<ConfiguredFeature<*, *>>,
+        configuredFeatureKey: ResourceKey<Feature>,
         level: ServerLevel,
         random: RandomSource,
         pos: BlockPos
     ) {
-        val configuredFeatureRegistry = level.registryAccess().lookupOrThrow(Registries.CONFIGURED_FEATURE)
+        val configuredFeatureRegistry = level.registryAccess().lookupOrThrow(Registries.FEATURE)
         configuredFeatureRegistry.get(configuredFeatureKey).ifPresent { configuredFeatureHolder ->
-            val treeConfiguration = configuredFeatureHolder.value().config() as TreeConfiguration
+            val treeConfiguration = configuredFeatureHolder.value() as TreeFeature
             val context = TreeDecorator.Context(
                 level,
                 { targetPos, targetState -> level.setBlock(targetPos, targetState, WORLD_GEN_BLOCK_UPDATE_FLAGS) },
