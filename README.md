@@ -29,6 +29,10 @@ This mod supports upgrading worlds with features that were introduced in the fol
 > [!WARNING]
 > The upgrade process is not idempotent!
 
+> [!IMPORTANT]
+> Before you can upgrade your world, you need to align the storage format to the latest version.
+> This can be done in the Minecraft client by clicking the "Optimize World" option in the world settings or by passing the `--forceUpgrade` parameter in a server environment.
+
 The set of upgrades that will be applied to a world can be controlled via the JVM argument `-Dworldupgrader.versions`.
 It accepts a list of comma-separated Minecraft versions.
 For example, the JVM argument `-Dworldupgrader.versions=1.21.5,1.21.6` will apply all upgrades for Minecraft versions 1.21.5 and 1.21.6.
